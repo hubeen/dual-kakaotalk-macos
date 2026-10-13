@@ -8,7 +8,7 @@ PROGRESS_APP="$ROOT/bin/DualKakaoProgress.app"
 SOURCE="/Applications/KakaoTalk.app"
 DESTINATION="/Applications/KakaoTalkWork.app"
 HASHES="$ROOT/Compatibility/asset-sha256.txt"
-INSTALLER_VERSION="0.1.0-beta.21"
+INSTALLER_VERSION="0.2.0-beta.1"
 PHASE="bootstrap"
 FAILURE_RECORDED=0
 LOG_DIR="$HOME/Library/Logs/DualKakaoTalk"
@@ -27,7 +27,7 @@ LANG_CODE="${LANG:-en}"
 if [[ "$LANG_CODE" == ko* ]]; then
   START="Dual KakaoTalk 설치를 시작합니다."
   MISSING="공식 KakaoTalk을 /Applications/KakaoTalk.app에 설치한 뒤 다시 실행하세요."
-  UNSUPPORTED="현재 KakaoTalk 버전 또는 빌드는 아직 지원되지 않습니다. GitHub에서 최신 버전을 확인하세요."
+  MENU_ICON_SKIPPED="이 KakaoTalk 빌드는 메뉴 막대 아이콘 초록색 변경이 아직 검증되지 않아 이 단계만 건너뜁니다. 듀얼 실행과 초록색 앱 아이콘은 정상 적용됩니다."
   ARM_WARNING="M1~M5는 동일한 arm64 Universal 빌드를 사용합니다. M3/macOS 26.5.2는 검증 완료했으며 다른 칩·macOS 조합은 실험적입니다."
   BUSY="카카오톡 두 앱을 모두 종료한 뒤 설치 프로그램을 다시 실행하세요."
   DONE="완료되었습니다. 개인용과 듀얼 카카오톡을 실행합니다."
@@ -38,14 +38,14 @@ if [[ "$LANG_CODE" == ko* ]]; then
   STEP_1="설치 프로그램을 확인하고 있습니다."
   STEP_2="공식 KakaoTalk 호환성을 확인하고 있습니다."
   STEP_3="실행 중인 KakaoTalk을 종료하고 있습니다."
-  STEP_4="듀얼 카카오톡 이름과 초록색 메뉴 막대 아이콘을 준비하고 있습니다."
+  STEP_4="듀얼 카카오톡 이름과 초록색 아이콘을 준비하고 있습니다."
   STEP_5="듀얼 카카오톡을 복사·변경·서명하고 있습니다. 잠시 기다려 주세요."
   STEP_6="관리자 승인 후 듀얼 카카오톡을 설치하고 있습니다."
   STEP_7="설치 결과를 확인하고 앱을 실행하고 있습니다."
 else
   START="Starting Dual KakaoTalk installation."
   MISSING="Install the official KakaoTalk app at /Applications/KakaoTalk.app, then run this installer again."
-  UNSUPPORTED="This KakaoTalk version or build is not supported yet. Check GitHub for the latest release."
+  MENU_ICON_SKIPPED="Green menu-bar icons are not verified for this KakaoTalk build, so only that step is skipped. Dual launch and the green app icon still apply."
   ARM_WARNING="M1 through M5 use the same arm64 Universal build. M3/macOS 26.5.2 is verified; other chip and macOS combinations remain experimental."
   BUSY="Quit both KakaoTalk applications and run the installer again."
   DONE="Installation complete. Opening personal and Dual KakaoTalk."
@@ -56,7 +56,7 @@ else
   STEP_1="Checking the installer."
   STEP_2="Checking official KakaoTalk compatibility."
   STEP_3="Closing running KakaoTalk applications."
-  STEP_4="Preparing the Dual KakaoTalk name and green menu-bar icons."
+  STEP_4="Preparing the Dual KakaoTalk name and green icons."
   STEP_5="Copying, modifying, and signing Dual KakaoTalk. This may take a moment."
   STEP_6="Installing Dual KakaoTalk after administrator approval."
   STEP_7="Verifying the installation and opening both apps."
@@ -160,13 +160,13 @@ diagnostic kakao_version "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVers
 diagnostic kakao_build "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$SOURCE/Contents/Info.plist")"
 diagnostic kakao_bundle_id "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$SOURCE/Contents/Info.plist")"
 diagnostic assets_sha256 "$hash"
-if ! /usr/bin/grep -Fxq "$hash" "$HASHES"; then
-  printf '%s\nAsset fingerprint: %s\n' "$UNSUPPORTED" "$hash"
-  choice="$(/usr/bin/osascript -e 'button returned of (display dialog "This KakaoTalk build is not supported. Open a prefilled GitHub compatibility issue?" buttons {"Cancel", "Open Issue"} default button "Open Issue" cancel button "Cancel")' 2>/dev/null || true)"
-  if [[ "$choice" == "Open Issue" ]]; then
-    open 'https://github.com/hubeen/dual-kakaotalk-macos/issues/new?template=compatibility.yml' || true
-  fi
-  exit 1
+# An unrecognised catalog only disables the green menu-bar icons.  Installation continues, so a
+# KakaoTalk update no longer requires a new installer release before the dual app can be rebuilt.
+if /usr/bin/grep -Fxq "$hash" "$HASHES"; then
+  diagnostic menu_bar_icons expected
+else
+  diagnostic menu_bar_icons skipped
+  printf '%s\nAsset fingerprint: %s\n' "$MENU_ICON_SKIPPED" "$hash"
 fi
 if [[ "$(uname -m)" == arm64 ]]; then printf '%s\n' "$ARM_WARNING"; fi
 PHASE="application_shutdown"
@@ -203,7 +203,7 @@ progress 7 7 "$STEP_7"
 /usr/bin/codesign --verify --deep --strict "$DESTINATION"
 diagnostic result success
 diagnostic installed_bundle_id "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$DESTINATION/Contents/Info.plist")"
-diagnostic installed_icon_file "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIconFile' "$DESTINATION/Contents/Info.plist")"
+diagnostic installed_icon_file "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIconFile' "$DESTINATION/Contents/Info.plist" 2>/dev/null || printf unset)"
 PHASE="launch"
 printf '%s\n' "$DONE"
 open "$SOURCE"

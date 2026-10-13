@@ -189,14 +189,6 @@ public enum AssetCatalogPatcher {
         }
     }
 
-    private static func unpremultiply(_ component: UInt8, alpha: UInt8) -> UInt8 {
-        guard alpha != 0 else { return 0 }
-        return UInt8(clamping: Int((Double(component) * 255.0 / Double(alpha)).rounded()))
-    }
-
-    private static func premultiply(_ component: UInt8, alpha: UInt8) -> UInt8 {
-        UInt8(clamping: Int((Double(component) * Double(alpha) / 255.0).rounded()))
-    }
     private static func validatesTransformedPixels(_ actual: Data, expected: Data) -> Bool {
         guard actual.count == expected.count, actual.count.isMultiple(of: 4) else { return false }
         return actual.withUnsafeBytes { actualRaw in

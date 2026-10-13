@@ -5,9 +5,34 @@ import XCTest
 final class OfficialAppInspectorTests: XCTestCase {
     private var temporaryDirectory: URL!
 
-    func testExpectedVersionMatchesCurrentSupportedRelease() {
-        XCTAssertEqual(OfficialAppInspector.expectedShortVersion, "26.8.0")
-        XCTAssertEqual(OfficialAppInspector.expectedBuildVersion, "2000")
+    func testAcceptsTheMinimumAndAnythingNewer() {
+        XCTAssertTrue(OfficialAppInspector.isVersion("26.6.1", atLeast: "26.6.1"))
+        XCTAssertTrue(OfficialAppInspector.isVersion("26.6.2", atLeast: "26.6.1"))
+        XCTAssertTrue(OfficialAppInspector.isVersion("26.8.0", atLeast: "26.6.1"))
+        XCTAssertTrue(OfficialAppInspector.isVersion("27.0", atLeast: "26.6.1"))
+        XCTAssertTrue(OfficialAppInspector.isVersion("26.10.0", atLeast: "26.9.0"))
+    }
+
+    func testRejectsOlderVersions() {
+        XCTAssertFalse(OfficialAppInspector.isVersion("26.6.0", atLeast: "26.6.1"))
+        XCTAssertFalse(OfficialAppInspector.isVersion("25.9.9", atLeast: "26.6.1"))
+        XCTAssertFalse(OfficialAppInspector.isVersion("26.6", atLeast: "26.6.1"))
+    }
+
+    func testAcceptsVersionStringsItCannotParse() {
+        // Identity and signature are the real gate; a future version format must not brick us.
+        XCTAssertTrue(OfficialAppInspector.isVersion("26.8.0-beta", atLeast: "26.6.1"))
+        XCTAssertTrue(OfficialAppInspector.isVersion("", atLeast: "26.6.1"))
+    }
+
+    func testRejectsVersionsOlderThanTheSupportedMinimum() throws {
+        let app = try makeFixture(bundleIdentifier: OfficialAppInspector.expectedBundleIdentifier)
+        XCTAssertThrowsError(try OfficialAppInspector.inspect(path: app.path)) { error in
+            XCTAssertTrue(
+                error.localizedDescription.contains("older than the minimum supported"),
+                error.localizedDescription
+            )
+        }
     }
 
     override func setUpWithError() throws {

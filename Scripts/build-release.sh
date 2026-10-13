@@ -4,7 +4,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd -P)"
 BUILD="$ROOT/.build-release"
 DIST="$ROOT/dist/Dual-KakaoTalk-for-macOS"
-ARTIFACT="$ROOT/dist/Dual-KakaoTalk-for-macOS-v0.1.0-beta.21.zip"
+ARTIFACT="$ROOT/dist/Dual-KakaoTalk-for-macOS-v0.2.0-beta.1.zip"
 MANIFEST="$ARTIFACT.manifest.json"
 DEPLOYMENT_TARGET=13.0
 
@@ -76,24 +76,49 @@ audit_archive() {
 }
 
 rm -rf "$BUILD" "$DIST"
-mkdir -p "$BUILD/x86_64" "$BUILD/arm64" "$DIST/bin" "$DIST/Compatibility"
+mkdir -p "$DIST/bin" "$DIST/Compatibility"
+
+# Release archives ship Universal.  ARCHS exists so a contributor without a
+# working cross-compile toolchain can still produce a host-only build for their
+# own machine: DUAL_KAKAOTALK_ARCHS=arm64 ./Scripts/build-release.sh
+read -r -a ARCHS <<< "${DUAL_KAKAOTALK_ARCHS:-x86_64 arm64}"
+[[ ${#ARCHS[@]} -gt 0 ]] || fail "DUAL_KAKAOTALK_ARCHS must name at least one architecture"
+
+# SwiftPM's output layout is not stable across build systems -- the newer one
+# writes under <scratch>/out/Products rather than <scratch>/<triple>/release --
+# so ask SwiftPM where the binary landed instead of assuming a path.
+BUILT_BINARY=""
+build_arch() {
+  local arch="$1" scratch="$BUILD/$arch" bin_path
+  mkdir -p "$scratch"
+  swift build -c release --arch "$arch" --scratch-path "$scratch"
+  bin_path="$(swift build -c release --arch "$arch" --scratch-path "$scratch" --show-bin-path | tail -n 1)"
+  BUILT_BINARY=""
+  local candidate
+  for candidate in "$bin_path/dual-kakaotalk-tool" \
+      $(find "$scratch" -type f -name dual-kakaotalk-tool 2>/dev/null); do
+    [[ -f "$candidate" ]] || continue
+    lipo -archs "$candidate" 2>/dev/null | tr ' ' '\n' | grep -Fx "$arch" >/dev/null || continue
+    BUILT_BINARY="$candidate"
+    break
+  done
+  [[ -n "$BUILT_BINARY" ]] || fail "no $arch dual-kakaotalk-tool build output under $scratch"
+}
 
 export MACOSX_DEPLOYMENT_TARGET="$DEPLOYMENT_TARGET"
-swift build -c release --arch x86_64 --scratch-path "$BUILD/x86_64"
-swift build -c release --arch arm64 --scratch-path "$BUILD/arm64"
-
-X86_BINARY="$BUILD/x86_64/x86_64-apple-macosx/release/dual-kakaotalk-tool"
-ARM_BINARY="$BUILD/arm64/arm64-apple-macosx/release/dual-kakaotalk-tool"
-for binary in "$X86_BINARY" "$ARM_BINARY"; do
-  [[ -f "$binary" ]] || fail "expected build output is absent: $binary"
-  require_macos_13_or_later "$binary"
-  require_private_coreui_load "$binary"
+SLICES=()
+for arch in "${ARCHS[@]}"; do
+  build_arch "$arch"
+  require_macos_13_or_later "$BUILT_BINARY"
+  require_private_coreui_load "$BUILT_BINARY"
+  SLICES+=("$BUILT_BINARY")
 done
 
-lipo -create "$X86_BINARY" "$ARM_BINARY" -output "$DIST/bin/dual-kakaotalk-tool"
+lipo -create "${SLICES[@]}" -output "$DIST/bin/dual-kakaotalk-tool"
 chmod +x "$DIST/bin/dual-kakaotalk-tool"
-require_universal_slice "$DIST/bin/dual-kakaotalk-tool" x86_64
-require_universal_slice "$DIST/bin/dual-kakaotalk-tool" arm64
+for arch in "${ARCHS[@]}"; do
+  require_universal_slice "$DIST/bin/dual-kakaotalk-tool" "$arch"
+done
 
 PROGRESS_APP="$DIST/bin/DualKakaoProgress.app"
 mkdir -p "$PROGRESS_APP/Contents/MacOS"
@@ -114,9 +139,9 @@ cat > "$PROGRESS_APP/Contents/Info.plist" <<'EOF'
   <key>CFBundlePackageType</key>
   <string>APPL</string>
   <key>CFBundleShortVersionString</key>
-  <string>0.1.0-beta.21</string>
+  <string>0.2.0-beta.1</string>
   <key>CFBundleVersion</key>
-  <string>21</string>
+  <string>22</string>
   <key>LSMinimumSystemVersion</key>
   <string>13.0</string>
 </dict>
@@ -154,7 +179,7 @@ cat > "$MANIFEST" <<EOF
   "sourceRevision": "$source_revision",
   "builtAt": "$build_timestamp",
   "deploymentTarget": "$DEPLOYMENT_TARGET",
-  "architectures": ["x86_64", "arm64"],
+  "architectures": [$(printf '"%s",' "${ARCHS[@]}" | sed 's/,$//')],
   "provenance": "CI-generated build metadata only; it is not immutable or protected provenance."
 }
 EOF

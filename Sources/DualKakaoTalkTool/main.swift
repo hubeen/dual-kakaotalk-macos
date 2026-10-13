@@ -85,12 +85,14 @@ do {
         guard arguments.count == 3 else {
             fail("usage: prepare-install <allowed-assets-sha256> <release-version>", code: .usage)
         }
-        let request = try KakaoTalkWorkInstaller.prepare(.init(
+        let prepared = try KakaoTalkWorkInstaller.prepare(.init(
             sourceApp: URL(fileURLWithPath: OfficialAppInspector.supportedPath),
             destinationApp: URL(fileURLWithPath: KakaoTalkWorkInstaller.destinationPath),
             allowedAssetsSHA256: [arguments[1]]
         ), version: arguments[2])
-        print(request.path)
+        // stdout stays the staging receipt path alone; the installer script parses it.
+        FileHandle.standardError.write(Data("diagnostic.menu_bar_icons_recolored=\(prepared.menuBarIconsRecolored)\n".utf8))
+        print(prepared.requestURL.path)
 
     case "install":
         guard arguments.count == 2 else {

@@ -99,3 +99,14 @@ public enum TransformError: LocalizedError {
         }
     }
 }
+
+/// Bitmap pixels reach us premultiplied — both CoreUI renditions and `NSBitmapImageRep` — while
+/// every colour transform here reasons about straight alpha.
+func unpremultiply(_ component: UInt8, alpha: UInt8) -> UInt8 {
+    guard alpha != 0 else { return 0 }
+    return UInt8(clamping: Int((Double(component) * 255.0 / Double(alpha)).rounded()))
+}
+
+func premultiply(_ component: UInt8, alpha: UInt8) -> UInt8 {
+    UInt8(clamping: Int((Double(component) * Double(alpha) / 255.0).rounded()))
+}
