@@ -8,7 +8,7 @@
 
 Intel 검증 장비는 macOS 13.7.8(22H730)을 실행합니다. 공식 카카오톡 26.8.0(2000)의 bundle identifier는 `com.kakao.KakaoTalkMac`, Team ID는 `L75WVXX68A`이며 strict deep signature가 유효하고 실행 파일은 Universal x86_64/arm64입니다. asset 이외의 정확한 호환성 정보는 `compatibility.json`에 기록되어 있습니다.
 
-Dock 아이콘은 공개 AppKit으로 사용자의 맥에서 다시 칠합니다. 번들이 이미 가진 `.icns`를 읽어 노란색 배경만 초록색(`#32C67A`)으로 색조 회전한 뒤 `/usr/bin/iconutil`로 다시 만들고, staged copy 안에서만 교체합니다. 비공개 API도 지문 허용 목록도 쓰지 않으므로 카카오톡 버전과 무관하게 동작합니다. Dock과 앱 전환기의 표시 이름은 그대로 `듀얼 카카오톡`입니다. 앱이 실행 중에 `NSApplication.applicationIconImage`로 자체 아이콘을 덮어쓰는 경우에는 실행 중 Dock 아이콘이 원본으로 보일 수 있으므로 실기기 확인이 필요합니다. 초록색 메뉴 막대 상태는 `Contents/Resources/Assets.car`에 있으며, macOS에는 이 컴파일된 포맷을 쓰는 공개 API가 없습니다.
+Dock 아이콘은 공개 AppKit으로 번들의 `.icns`를 읽어 노란색 배경만 초록색으로 바꾼 뒤 `/usr/bin/iconutil`로 다시 만들고 staged copy에서 교체합니다. catalog 지문에는 의존하지 않지만 미래 버전의 아이콘 구조까지 보장하지는 않습니다. Intel macOS 13, KakaoTalk 26.8.0(2000)의 수정본에서 설치와 두 로그인 화면의 동시 표시를 확인했고, 사용자는 초록색 Dock 아이콘을 확인했습니다. 촬영 당시 `⌘Tab`은 노란색이었으며 원인은 확정하지 않았습니다. 로그인·메시지 송수신 및 수정본의 Apple Silicon 실기기 검증은 수행하지 않았습니다. 초록색 메뉴 막대 상태는 `Contents/Resources/Assets.car`에 있으며 공개 writer API가 없어 검증된 지문에서만 처리합니다.
 
 ## 현재 구현
 
@@ -26,7 +26,7 @@ bridge 선언은 관찰한 runtime selector와 MIT 라이선스 CoreUI header �
 
 ## 잔여 위험
 
-CoreUI는 비공개이므로 macOS 업데이트에서 변경될 수 있습니다. Catalog 내부 구조도 카카오톡 업데이트에서 바뀔 수 있습니다. Ad-hoc 서명은 보안 경고를 유발할 수 있습니다. Universal 결과물은 Intel macOS 13.7.8과 Apple M3 macOS 26.5.2에서 실제 검증했으며 다른 조합은 실험적입니다. 알 수 없는 catalog는 모두 안전하게 실패하며 호환성 이슈 절차로 보고됩니다.
+CoreUI는 비공개이므로 macOS 업데이트에서 변경될 수 있습니다. Catalog 내부 구조도 카카오톡 업데이트에서 바뀔 수 있습니다. Ad-hoc 서명은 보안 경고를 유발할 수 있습니다. 기존 버전의 Universal 결과물은 Intel macOS 13.7.8과 Apple M3 macOS 26.5.2에서 검증했습니다. 수정본은 별도 실기기 검증이 필요합니다. 알 수 없는 catalog에서는 메뉴 아이콘 변경만 생략하며, 번들 구조·신원·서명 검증 실패는 설치를 중단합니다.
 
 ## 후속 작업
 

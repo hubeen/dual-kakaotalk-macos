@@ -27,7 +27,7 @@ The Dock distinguishes the apps by their localized names:
 
 - macOS Ventura 13 or newer
 - Official KakaoTalk at `/Applications/KakaoTalk.app`
-- Minimum supported KakaoTalk: 26.6.1. Newer releases work without downloading a new installer.
+- Minimum accepted KakaoTalk: 26.6.1. There is no exact version pin, but compatibility with every future release is not guaranteed.
 - End users do not need Xcode.
 
 ## Install or update
@@ -41,9 +41,11 @@ The Dock distinguishes the apps by their localized names:
    - Personal KakaoTalk: `/Applications/KakaoTalk.app`
    - Dual KakaoTalk: `/Applications/KakaoTalkWork.app`
 
-After updating official KakaoTalk, quit both applications and run `Install.command` from **the folder you already have**. The installer is not pinned to one KakaoTalk version, so a KakaoTalk update no longer requires downloading a new release. The same command handles fresh installs and updates, and the existing Dual KakaoTalk app is backed up before replacement and restored if installation fails.
+After updating official KakaoTalk, quit both applications and run `Install.command` from **the folder you already have**. A version-number change alone does not require a new installer, but internal structural changes may require a new release. The same command handles fresh installs and updates, and the existing Dual KakaoTalk app is backed up before replacement and restored if installation fails.
 
-On a KakaoTalk build that has not been verified yet, only the green **menu-bar** icon step is skipped; installation continues, and dual launch plus the green **app icon** still apply.
+An unverified `Assets.car` fingerprint skips only the green **menu-bar** icon step; the remaining installation steps continue. Changes to the app's internal structure can still break installation or launch.
+
+This revision was installed and signature-verified on Intel macOS 13 with KakaoTalk 26.8.0 (2000), and both login screens appeared simultaneously. The user confirmed a green Dock icon; the captured `Command-Tab` icons remained yellow. Login, message sending/receiving, and physical Apple Silicon validation of this revision have not been performed. The screenshots above and existing M3 validation records describe earlier revisions.
 
 ## Uninstall
 
@@ -57,7 +59,8 @@ The uninstaller removes only `/Applications/KakaoTalkWork.app`. It preserves off
 
 - Validates the official app's fixed path, bundle ID, minimum version, Kakao Team ID, and signature.
 - Copies, recolors, ad-hoc signs, and verifies the staged app without administrator privileges.
-- Recolors the app icon background to green using public AppKit only, independent of the KakaoTalk version.
+- Recolors the app icon background using public AppKit without requiring a catalog fingerprint.
+- Compares version/build, executable hash, catalog hash, and icon file/declaration before skipping an unchanged installation.
 - Recolors the menu-bar icons only when the `Assets.car` fingerprint matches, and skips just that step otherwise.
 - Uses administrator privileges only to import a fixed-format, digest-bound request.
 - Uses an exclusive lock and write-ahead recovery journal for concurrent or interrupted installations.
@@ -98,8 +101,8 @@ The release contains a Universal x86_64 and arm64 helper. `Assets.car` mutation 
 
 ## Limitations
 
-- Official app updates are not copied automatically; run `Install.command` again. The same installer folder keeps working.
-- Green menu-bar icons apply only on a verified `Assets.car` fingerprint. On other builds the app icon alone distinguishes the two.
+- Official app updates are not copied automatically; run `Install.command` again. The same installer folder can be reused while the app's internal structure remains compatible.
+- Green menu-bar icons apply only on a verified `Assets.car` fingerprint. The Dock and `Command-Tab` may display different icons.
 - Ad-hoc signing may trigger macOS security warnings.
 - Installation still fails closed if the bundle identity or the Kakao signature does not check out.
 - M1 through M5 use the same arm64 Universal build, so there is no chip-specific implementation. M3/macOS 26.5.2 is physically verified; the remaining chip and macOS combinations require physical-device validation.

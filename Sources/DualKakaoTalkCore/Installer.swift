@@ -263,10 +263,22 @@ public enum KakaoTalkWorkInstaller {
         let staged = URL(fileURLWithPath: request.stagedPath); try rejectLinkAndInsecure(staged)
         guard FileManager.default.fileExists(atPath: staged.appendingPathComponent("Contents/Info.plist").path), try SHA256.file(at: staged.appendingPathComponent("Contents/Resources/Assets.car")) == request.destinationCatalogSHA256, hasLocalizedDualAppNames(in: staged) else { throw InstallerError.invalidRequest("Staged app changed after preparation.") }
     }
-    private static func destinationIsNoOp(_ destination: URL, request: PrivilegedInstallRequest) -> Bool {
+    static func destinationIsNoOp(_ destination: URL, request: PrivilegedInstallRequest) -> Bool {
         guard FileManager.default.fileExists(atPath: destination.path), let plist = try? Data(contentsOf: destination.appendingPathComponent("Contents/Info.plist")), let dictionary = try? PropertyListSerialization.propertyList(from: plist, options: [], format: nil) as? [String: Any], dictionary["CFBundleIdentifier"] as? String == bundleIdentifier, dictionary["CFBundleExecutable"] as? String == executableName, hasLocalizedDualAppNames(in: destination) else { return false }
         guard (try? SHA256.file(at: destination.appendingPathComponent("Contents/Resources/Assets.car"))) == request.destinationCatalogSHA256 else { return false }
-        return installedIconMatchesStaged(destination: destination, staged: URL(fileURLWithPath: request.stagedPath))
+        let staged = URL(fileURLWithPath: request.stagedPath)
+        guard let stagedPlist = try? Data(contentsOf: staged.appendingPathComponent("Contents/Info.plist")),
+              let stagedDictionary = try? PropertyListSerialization.propertyList(from: stagedPlist, options: [], format: nil) as? [String: Any] else { return false }
+        for key in ["CFBundleShortVersionString", "CFBundleVersion"] {
+            guard let installed = dictionary[key] as? String,
+                  let prepared = stagedDictionary[key] as? String,
+                  installed == prepared else { return false }
+        }
+        let executable = "Contents/MacOS/\(executableName)"
+        guard let installedDigest = try? SHA256.file(at: destination.appendingPathComponent(executable)),
+              let preparedDigest = try? SHA256.file(at: staged.appendingPathComponent(executable)),
+              installedDigest == preparedDigest else { return false }
+        return installedIconMatchesStaged(destination: destination, staged: staged)
     }
 
     /// The recoloured app icon is not covered by the catalog digest, so without this a rebuilt
@@ -275,6 +287,7 @@ public enum KakaoTalkWorkInstaller {
     /// so the install proceeds rather than being wrongly skipped.
     private static func installedIconMatchesStaged(destination: URL, staged: URL) -> Bool {
         guard let fileName = AppIconRecolorer.declaredIconFileName(in: staged),
+              AppIconRecolorer.declaredIconFileName(in: destination) == fileName,
               let installed = try? SHA256.file(at: destination.appendingPathComponent("Contents/Resources/\(fileName)")),
               let prepared = try? SHA256.file(at: staged.appendingPathComponent("Contents/Resources/\(fileName)"))
         else { return false }

@@ -7,7 +7,7 @@ Status: **EXPERIMENTAL BETA — PRIVATE API, FINGERPRINT-GATED**
 
 The Intel verification machine runs macOS 13.7.8 (22H730). Its official KakaoTalk 26.8.0 (2000) has bundle identifier `com.kakao.KakaoTalkMac`, Team ID `L75WVXX68A`, a valid strict deep signature, and a Universal x86_64/arm64 executable. Exact non-asset compatibility facts are recorded in `compatibility.json`.
 
-The Dock icon is re-derived locally through public AppKit: the bundle's existing `.icns` is read, only the yellow field is hue-rotated to green (`#32C67A`), `/usr/bin/iconutil` rebuilds it, and it is replaced inside the staged copy alone. It uses no private API and no fingerprint allowlist, so it works across KakaoTalk versions. The dual app is still labeled `Dual KakaoTalk` in the Dock and app switcher. If the app overrides its own icon at runtime through `NSApplication.applicationIconImage`, the running Dock icon may still show the original, which needs physical-device confirmation. Its green menu-bar states reside in `Contents/Resources/Assets.car`; macOS provides no public writer API for that compiled format.
+The Dock icon is rebuilt locally from the bundle's `.icns` through public AppKit and `/usr/bin/iconutil`, then replaced only in the staged copy. It does not require a catalog fingerprint, but future icon structures are not guaranteed to work. This revision was installed on Intel macOS 13 with KakaoTalk 26.8.0 (2000), and both login screens appeared simultaneously. The user confirmed a green Dock icon; the captured `Command-Tab` icons remained yellow, with the cause undetermined. Login, message sending/receiving, and physical Apple Silicon validation of this revision have not been performed. Green menu-bar states reside in `Contents/Resources/Assets.car`; there is no public writer API, so only verified fingerprints are processed.
 
 ## Current implementation
 
@@ -25,7 +25,7 @@ The bridge declarations are independently implemented from observed runtime sele
 
 ## Residual risk
 
-CoreUI is private and may change in any macOS update. Catalog internals may change in any KakaoTalk update. Ad-hoc signing can trigger security prompts. The Universal output is physically verified on Intel macOS 13.7.8 and Apple M3 macOS 26.5.2; other combinations remain experimental. Every unknown catalog fails closed and is reported through the compatibility issue flow.
+CoreUI is private and may change in any macOS update. Catalog internals may change in any KakaoTalk update. Ad-hoc signing can trigger security prompts. Earlier Universal releases were physically verified on Intel macOS 13.7.8 and Apple M3 macOS 26.5.2; this revision requires separate physical validation. An unknown catalog skips only menu-icon recoloring; failures in bundle structure, identity, or signature validation still stop installation.
 
 ## Follow-up
 

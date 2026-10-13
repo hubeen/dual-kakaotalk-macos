@@ -105,6 +105,7 @@ public enum AppIconRecolorer {
         let resources = stagedApp.appendingPathComponent("Contents/Resources", isDirectory: true)
         if let existingIconFile {
             _ = try FileManager.default.replaceItemAt(resources.appendingPathComponent(existingIconFile), withItemAt: produced)
+            try setIconFile(existingIconFile, in: stagedApp)
         } else {
             let name = "\(fallbackIconBaseName).icns"
             try FileManager.default.moveItem(at: produced, to: resources.appendingPathComponent(name))
